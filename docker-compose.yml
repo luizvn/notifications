@@ -1,0 +1,70 @@
+services:
+  app:
+    container_name: notifications-app
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env.development
+    ports:
+      - "${PORT}:${PORT}" # Mapeia a porta definida no .env (ou 3000) para a porta do host
+    environment:
+      # Passa as variáveis de ambiente necessárias para a aplicação
+      - NODE_ENV=${NODE_ENV}
+      - PORT=${PORT}
+      - MONGODB_URI=mongodb://${MONGO_USER}:${MONGO_PASSWORD}@mongo:27017/${MONGO_DATABASE}?authSource=admin
+      - RABBITMQ_URI=amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672
+      # Adicione outras variáveis de ambiente que sua aplicação precise
+    volumes:
+      - .:/usr/src/app # Mapeia o código fonte local para dentro do container (bom para desenvolvimento)
+      - /usr/src/app/node_modules # Volume anônimo para evitar sobrescrever node_modules
+    command: npm run start:dev # Comando para iniciar a aplicação em modo de desenvolvimento
+    depends_on:
+      - mongo # Garante que o MongoDB inicie antes da aplicação
+      - rabbitmq # Garante que o RabbitMQ inicie antes da aplicação
+    networks:
+      - notifications-network
+
+  # Serviço do MongoDB
+  mongo:
+    container_name: notifications-mongo
+    image: mongo:8
+    env_file:
+      - .env.development
+    ports:
+      - "27017:27017" # Mapeia a porta padrão do MongoDB
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_USER}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_PASSWORD}
+      - MONGO_INITDB_DATABASE=${MONGO_DATABASE}
+    volumes:
+      - mongo-data:/data/db # Volume nomeado para persistir os dados do MongoDB
+    networks:
+      - notifications-network
+
+  # Serviço do RabbitMQ
+  rabbitmq:
+    container_name: notifications-rabbitmq
+    image: rabbitmq:4-management # Imagem com a interface de gerenciamento incluída
+    env_file:
+      - .env.development
+    ports:
+      - "5672:5672" # Porta padrão do AMQP
+      - "15672:15672" # Porta da interface de gerenciamento web
+    environment:
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASSWORD}
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq # Volume nomeado para persistir os dados do RabbitMQ
+    networks:
+      - notifications-network
+
+# Define os volumes nomeados
+volumes:
+  mongo-data:
+  rabbitmq-data:
+
+# Define a rede customizada
+networks:
+  notifications-network:
+    driver: bridge

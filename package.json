@@ -82,5 +82,8 @@
     "roots": [
       "<rootDir>/apps/"
     ]
+  },
+  "engines": {
+    "node": "^22.20.0"
   }
 }
